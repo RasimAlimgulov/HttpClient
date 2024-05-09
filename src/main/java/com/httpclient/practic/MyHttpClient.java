@@ -6,6 +6,7 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.ResponseHandler;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.routing.HttpRoutePlanner;
@@ -19,6 +20,7 @@ import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
+import java.net.http.HttpClient;
 
 public class MyHttpClient {
 
@@ -28,7 +30,8 @@ public class MyHttpClient {
         // client.get();
         // client.post();
         //client.credentialProvider();
-        client.proxy();
+        //client.proxy();
+        client.proxyCredentialProvider();
     }
 
 
@@ -95,6 +98,35 @@ public class MyHttpClient {
         System.out.println(EntityUtils.toString(response.getEntity()));
     }
 
+
+                                    //////////////   прокси-аутентификация
+    private void proxyCredentialProvider() throws IOException {
+      CredentialsProvider credentialsProvider=new BasicCredentialsProvider();
+      credentialsProvider.setCredentials(new AuthScope("eo5jq6bfktbf7ns.m.pipedream.net", 443, AuthScope.ANY_REALM, "https"), new UsernamePasswordCredentials("gfghf","1111"));
+
+      HttpClientBuilder clientBuilder=HttpClients.custom();
+      clientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+
+        CloseableHttpClient client=clientBuilder.build();
+
+        HttpHost target = new HttpHost("eo5jq6bfktbf7ns.m.pipedream.net", 443, "https");
+      HttpHost proxy=new HttpHost("localhost", 8080, "http");
+
+        RequestConfig.Builder requestConfigBuilder=RequestConfig.custom();
+        requestConfigBuilder.setProxy(proxy);
+        RequestConfig requestConfig=requestConfigBuilder.build();
+
+        HttpGet httpGet=new HttpGet("/");
+        httpGet.setConfig(requestConfig);
+
+
+        HttpResponse response= client.execute(target,httpGet);
+        System.out.println(response.getStatusLine());
+        System.out.println(response.getLocale());
+        System.out.println(EntityUtils.toString(response.getEntity()));
+
+
+    }
 
 
 
