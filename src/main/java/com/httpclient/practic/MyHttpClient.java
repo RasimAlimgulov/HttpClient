@@ -4,23 +4,27 @@ import org.apache.http.*;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.CookieStore;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.routing.HttpRoutePlanner;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.HttpClients;
+import org.apache.http.cookie.Cookie;
+import org.apache.http.impl.client.*;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
+import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 
+
 import java.io.IOException;
-import java.net.http.HttpClient;
+import java.time.Duration;
+import java.util.Iterator;
+import java.util.List;
 
 public class MyHttpClient {
 
@@ -31,7 +35,8 @@ public class MyHttpClient {
         // client.post();
         //client.credentialProvider();
         //client.proxy();
-        client.proxyCredentialProvider();
+        //client.proxyCredentialProvider();
+        client.cookieEnter();
     }
 
 
@@ -128,6 +133,40 @@ public class MyHttpClient {
 
     }
 
+                        ///////////////////// Вход с помощью Cookie
+    private void cookieEnter() throws  IOException {
+        CookieStore cookieStore = new BasicCookieStore();
+
+        BasicClientCookie clientcookie1 = new BasicClientCookie("name","Raju");
+        BasicClientCookie clientcookie2 = new BasicClientCookie("age","28");
+        BasicClientCookie clientcookie3 = new BasicClientCookie("place","Hyderabad");
+
+        clientcookie1.setDomain(".sample.com");
+        clientcookie2.setDomain(".sample.com");
+        clientcookie3.setDomain(".sample.com");
+        clientcookie1.setPath("/");
+        clientcookie2.setPath("/");
+        clientcookie3.setPath("/");
+        cookieStore.addCookie(clientcookie1);
+        cookieStore.addCookie(clientcookie2);
+        cookieStore.addCookie(clientcookie3);
+
+        HttpClientBuilder clientbuilder = HttpClients.custom();
+        clientbuilder.setDefaultCookieStore(cookieStore);
+        CloseableHttpClient httpclient = clientbuilder.build();
+
+        HttpGet httpGet = new HttpGet("https://eo5jq6bfktbf7ns.m.pipedream.net");
+        CloseableHttpResponse response = httpclient.execute(httpGet);
+        System.out.println(EntityUtils.toString(response.getEntity()));
+
+        List list = cookieStore.getCookies();
+
+        System.out.println("list of cookies");
+        Iterator it = list.iterator();
+        if(it.hasNext()) {
+            System.out.println(it.next());
+        }
+    }
 
 
     /////Обработчик ответов
