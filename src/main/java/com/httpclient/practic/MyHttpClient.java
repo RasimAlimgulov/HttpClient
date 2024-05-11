@@ -1,5 +1,6 @@
 package com.httpclient.practic;
 
+import org.apache.coyote.Response;
 import org.apache.http.*;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -12,31 +13,50 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.routing.HttpRoutePlanner;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.cookie.Cookie;
 import org.apache.http.impl.client.*;
 import org.apache.http.impl.conn.DefaultProxyRoutePlanner;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.impl.cookie.BasicClientCookie;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.HttpContext;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.EntityUtils;
 
 
+import javax.net.ssl.SSLContext;
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Paths;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.time.Duration;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 public class MyHttpClient {
 
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException, CertificateException, NoSuchAlgorithmException, KeyStoreException, KeyManagementException, URISyntaxException {
         MyHttpClient client = new MyHttpClient();
         // client.get();
         // client.post();
         //client.credentialProvider();
         //client.proxy();
         //client.proxyCredentialProvider();
-        client.cookieEnter();
+        //client.cookieEnter();
+        //client.multiThreadhttp();
+        client.sslHttp();
     }
 
 
@@ -169,6 +189,83 @@ public class MyHttpClient {
     }
 
 
+                  /////////////////// Многопотоные запросы
+    public void multiThreadhttp() throws InterruptedException {
+        PoolingHttpClientConnectionManager clientConnectionManager=new PoolingHttpClientConnectionManager(); // Создаём пул connections
+        clientConnectionManager.setMaxTotal(100); /// максимальное количество соединений
+        HttpClientBuilder clientBuilder=HttpClients.custom().setConnectionManager(clientConnectionManager);
+        HttpGet httpget1 = new HttpGet("http://www.tutorialspoint.com/");
+        HttpGet httpget2 = new HttpGet("http://www.google.com/");
+        HttpGet httpget3 = new HttpGet("https://www.qries.com/");
+        HttpGet httpget4 = new HttpGet("https://in.yahoo.com/");
+
+        CloseableHttpClient client=clientBuilder.build();
+        ClientMultiThreader clientMultiThreader=new ClientMultiThreader(client,httpget1,1);
+        ClientMultiThreader clientMultiThreader2=new ClientMultiThreader(client,httpget2,2);
+        ClientMultiThreader clientMultiThreader3=new ClientMultiThreader(client,httpget3,3);
+        ClientMultiThreader clientMultiThreader4=new ClientMultiThreader(client,httpget4,4);
+
+        clientMultiThreader.run();
+        clientMultiThreader2.run();
+        clientMultiThreader3.run();
+        clientMultiThreader4.run();
+
+        clientMultiThreader.join();
+        clientMultiThreader2.join();
+        clientMultiThreader3.join();
+        clientMultiThreader4.join();
+    }
+
+
+    /////////////////////////////////   Создаём защищенное соединение Security Socket layer
+     public void sslHttp() throws CertificateException, NoSuchAlgorithmException, KeyStoreException, IOException, KeyManagementException, URISyntaxException {
+         SSLContextBuilder contextBuilder= SSLContexts.custom();
+
+         File file= Paths.get(MyHttpClient.class.getClassLoader().getResource("mykeystore.jks").toURI()).toFile();;
+         contextBuilder.loadTrustMaterial(file,"changeit".toCharArray());
+
+         SSLContext context=contextBuilder.build();
+
+         SSLConnectionSocketFactory socketFactory=new SSLConnectionSocketFactory(context,
+                     new NoopHostnameVerifier());
+
+         HttpClientBuilder clientBuilder=HttpClients.custom();
+
+         clientBuilder.setSSLSocketFactory(socketFactory);
+
+         CloseableHttpClient client=clientBuilder.build();
+
+         HttpGet httpget2 = new HttpGet("http://www.google.com/");
+         HttpResponse respons=client.execute(httpget2);
+         System.out.println(respons.getStatusLine());
+         System.out.println(EntityUtils.toString(respons.getEntity()));
+     }
+
+    public class ClientMultiThreader extends Thread{
+        CloseableHttpClient client;
+        HttpGet get;
+        int id;
+        public ClientMultiThreader(CloseableHttpClient client,HttpGet get,int id){
+          this.client=client;
+          this.id=id;
+          this.get=get;
+        }
+
+        @Override
+        public void run() {
+            try {
+                HttpResponse response= client.execute(get);
+                System.out.println("Status of thread "+id+" : "+response.getStatusLine());
+
+                HttpEntity entity = response.getEntity();
+                if (entity != null) {
+                    System.out.println("Bytes read by thread thread "+id+": "+EntityUtils.toByteArray(entity).length);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
     /////Обработчик ответов
     public class MyResponseHandler implements ResponseHandler<String> {
 
